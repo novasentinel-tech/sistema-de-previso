@@ -11,10 +11,11 @@ import pandas as pd
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from data_preprocessing import quick_preprocess, DataPreprocessor
-from models.lstm_model import train_lstm
-from evaluation import calculate_metrics, plot_predictions, create_evaluation_report
-from prediction import PredictionEngine
+from src.config import RAW_PATH
+from src.data_preprocessing import quick_preprocess, DataPreprocessor
+from src.models.lstm_model import train_lstm
+from src.evaluation import calculate_metrics, plot_predictions, create_evaluation_report
+from src.prediction import PredictionEngine
 from dashboard.plotly_charts import create_prediction_vs_actual
 
 
@@ -29,7 +30,7 @@ def create_sample_data():
     
     # Generate synthetic time series data
     np.random.seed(42)
-    dates = pd.date_range('2024-01-01', periods=500, freq='H')
+    dates = pd.date_range('2024-01-01', periods=500, freq='h')
     
     # Create multivariate time series
     data = {
@@ -41,9 +42,8 @@ def create_sample_data():
     
     df = pd.DataFrame(data)
     
-    # Save to CSV
-    csv_path = os.path.join('data', 'raw', 'sample_data.csv')
-    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    # Save to CSV using RAW_PATH from config
+    csv_path = os.path.join(RAW_PATH, 'sample_data.csv')
     df.to_csv(csv_path, index=False)
     
     print(f"✓ Sample data created: {csv_path}")

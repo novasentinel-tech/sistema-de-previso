@@ -7,7 +7,7 @@ import os
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from config import (
+from src.config import (
     LSTM_UNITS, LSTM_DROPOUT, LSTM_DENSE_UNITS,
     LSTM_BATCH_SIZE, LSTM_EPOCHS, LSTM_LEARNING_RATE,
     LSTM_EARLY_STOPPING, LSTM_PATIENCE, MODELS_PATH, RANDOM_SEED
@@ -41,11 +41,13 @@ def build_lstm_model(input_shape):
     
     model = keras.Sequential(name='LSTM_Model')
     
+    # Input layer
+    model.add(layers.Input(shape=input_shape))
+    
     # First LSTM layer with return sequences
     model.add(layers.LSTM(
         units=LSTM_UNITS[0],
         return_sequences=True,
-        input_shape=input_shape,
         name='lstm_layer_1'
     ))
     model.add(layers.Dropout(LSTM_DROPOUT))
@@ -110,6 +112,18 @@ def train_lstm(X_train, y_train, X_val, y_val, model_name='lstm_model'):
     logger.info("🚀 Starting LSTM training...")
     logger.info(f"  X_train shape: {X_train.shape}")
     logger.info(f"  y_train shape: {y_train.shape}")
+    
+    # Ensure data doesn't contain NaN and is clipped
+    X_train = np.nan_to_num(X_train, nan=0.0, posinf=1.0, neginf=0.0)
+    X_val = np.nan_to_num(X_val, nan=0.0, posinf=1.0, neginf=0.0)
+    y_train = np.nan_to_num(y_train, nan=0.0, posinf=1.0, neginf=0.0)
+    y_val = np.nan_to_num(y_val, nan=0.0, posinf=1.0, neginf=0.0)
+    
+    # Clip values to reasonable range
+    X_train = np.clip(X_train, -1e6, 1e6)
+    X_val = np.clip(X_val, -1e6, 1e6)
+    y_train = np.clip(y_train, -1e6, 1e6)
+    y_val = np.clip(y_val, -1e6, 1e6)
     
     # Build model
     input_shape = (X_train.shape[1], X_train.shape[2])

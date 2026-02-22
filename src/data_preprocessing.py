@@ -7,7 +7,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
-from config import (
+from src.config import (
     RAW_PATH, PROCESSED_PATH, RANDOM_SEED,
     NORMALIZATION_METHOD, HANDLE_MISSING, REMOVE_OUTLIERS,
     OUTLIER_THRESHOLD, TEST_SIZE, VALIDATION_SIZE
@@ -70,14 +70,13 @@ class DataPreprocessor:
             logger.info(f"  Dropped {initial_nulls} null values")
             
         elif HANDLE_MISSING == 'forward_fill':
-            df = df.fillna(method='ffill').fillna(method='bfill')
+            df = df.ffill().bfill()
             logger.info(f"  Forward filled {initial_nulls} null values")
             
         elif HANDLE_MISSING == 'interpolate':
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             df[numeric_cols] = df[numeric_cols].interpolate(method='linear')
             logger.info(f"  Interpolated {initial_nulls} null values")
-        
         # Remove outliers using IQR or Z-score
         if REMOVE_OUTLIERS:
             numeric_cols = df.select_dtypes(include=[np.number]).columns
@@ -125,6 +124,10 @@ class DataPreprocessor:
                 df[f'{col}_ma7'] = df[col].rolling(window=7, min_periods=1).mean()
                 df[f'{col}_std7'] = df[col].rolling(window=7, min_periods=1).std()
         
+        # Fill any NaN values that may have been created
+        df = df.fillna(df.mean())
+        df = df.ffill().bfill()
+        
         logger.info(f"✓ Created {len(df.columns)} features total")
         return df
     
@@ -142,6 +145,9 @@ class DataPreprocessor:
         """
         logger.info(f"📊 Normalizing data using {self.normalization_method}...")
         
+        # Clean data before normalization
+        X_train = np.nan_to_num(X_train, nan=0.0, posinf=0.0, neginf=0.0)
+        
         if self.normalization_method == 'minmax':
             self.scaler = MinMaxScaler(feature_range=(0, 1))
         elif self.normalization_method == 'standard':
@@ -155,12 +161,14 @@ class DataPreprocessor:
         results = [X_train_scaled]
         
         if X_test is not None:
+            X_test = np.nan_to_num(X_test, nan=0.0, posinf=0.0, neginf=0.0)
             X_test_scaled = self.scaler.transform(X_test)
             results.append(X_test_scaled)
         else:
             results.append(None)
         
         if X_val is not None:
+            X_val = np.nan_to_num(X_val, nan=0.0, posinf=0.0, neginf=0.0)
             X_val_scaled = self.scaler.transform(X_val)
             results.append(X_val_scaled)
         else:

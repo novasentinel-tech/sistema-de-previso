@@ -5,10 +5,10 @@ Make predictions using trained models on new data
 
 import numpy as np
 import pandas as pd
-from models.lstm_model import load_lstm_model, predict_lstm
-from models.prophet_model import load_prophet_model, forecast_prophet
-from data_preprocessing import DataPreprocessor
-from config import MODELS_PATH, FORECAST_HORIZON, CONFIDENCE_LEVEL
+from src.models.lstm_model import load_lstm_model, predict_lstm
+from src.models.prophet_model import load_prophet_model, forecast_prophet
+from src.data_preprocessing import DataPreprocessor
+from src.config import MODELS_PATH, FORECAST_HORIZON, CONFIDENCE_LEVEL
 import logging
 import os
 

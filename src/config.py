@@ -43,11 +43,11 @@ LSTM_UNITS = [64, 32]  # Number of units in each LSTM layer
 LSTM_DROPOUT = 0.2
 LSTM_DENSE_UNITS = 16
 LSTM_LOOKBACK = 24  # 24 timesteps (e.g., 24 hours)
-LSTM_BATCH_SIZE = 32
+LSTM_BATCH_SIZE = 16
 LSTM_EPOCHS = 100
-LSTM_LEARNING_RATE = 0.001
+LSTM_LEARNING_RATE = 0.0005
 LSTM_EARLY_STOPPING = True
-LSTM_PATIENCE = 10
+LSTM_PATIENCE = 15
 
 # ============================================================
 # PROPHET MODEL PARAMETERS

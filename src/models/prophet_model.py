@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import os
 from prophet import Prophet
-from config import (
+from src.config import (
     PROPHET_YEARLY_SEASONALITY, PROPHET_WEEKLY_SEASONALITY,
     PROPHET_DAILY_SEASONALITY, PROPHET_CHANGEPOINT_PRIOR_SCALE,
     PROPHET_SEASONALITY_SCALE, PROPHET_INTERVAL_WIDTH, MODELS_PATH, RANDOM_SEED
@@ -63,9 +63,7 @@ def train_prophet(df, col_target, col_datetime='ds', model_name=None):
         weekly_seasonality=PROPHET_WEEKLY_SEASONALITY,
         daily_seasonality=PROPHET_DAILY_SEASONALITY,
         changepoint_prior_scale=PROPHET_CHANGEPOINT_PRIOR_SCALE,
-        seasonality_scale=PROPHET_SEASONALITY_SCALE,
-        interval_width=PROPHET_INTERVAL_WIDTH,
-        interval_width_threshold=0.05
+        interval_width=PROPHET_INTERVAL_WIDTH
     )
     
     # Fit model (suppress verbose output)

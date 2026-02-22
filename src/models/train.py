@@ -6,10 +6,10 @@ Orchestrates training of all models
 import os
 import numpy as np
 import pandas as pd
-from data_preprocessing import DataPreprocessor, quick_preprocess
-from models.lstm_model import build_lstm_model, train_lstm, load_lstm_model
-from models.prophet_model import train_prophet, train_prophet_for_all_columns
-from config import MODELS_PATH, PROCESSED_PATH, RANDOM_SEED, LSTM_LOOKBACK
+from src.data_preprocessing import DataPreprocessor, quick_preprocess
+from src.models.lstm_model import build_lstm_model, train_lstm, load_lstm_model
+from src.models.prophet_model import train_prophet, train_prophet_for_all_columns
+from src.config import MODELS_PATH, PROCESSED_PATH, RANDOM_SEED, LSTM_LOOKBACK
 import logging
 import json
 

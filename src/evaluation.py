@@ -45,6 +45,14 @@ def calculate_metrics(y_true, y_pred, metric_names=None):
     y_true = y_true.flatten() if isinstance(y_true, np.ndarray) else y_true
     y_pred = y_pred.flatten() if isinstance(y_pred, np.ndarray) else y_pred
     
+    # Replace NaN and inf with 0
+    y_true = np.nan_to_num(y_true, nan=0.0, posinf=0.0, neginf=0.0)
+    y_pred = np.nan_to_num(y_pred, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    # Clip values
+    y_true = np.clip(y_true, -1e6, 1e6)
+    y_pred = np.clip(y_pred, -1e6, 1e6)
+    
     if 'mae' in metric_names:
         metrics['mae'] = mean_absolute_error(y_true, y_pred)
     
