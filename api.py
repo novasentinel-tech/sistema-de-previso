@@ -1,8 +1,3 @@
-"""
-TOTEM_DEEPSEA FastAPI
-API para previsão de séries temporais multivariadas usando LSTM e Prophet
-"""
-
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -16,37 +11,26 @@ import logging
 from datetime import datetime, timedelta
 import sys
 
-# Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.data_preprocessing import DataPreprocessor
 from src.models.lstm_model import build_lstm_model, train_lstm
-from src.models.prophet_model import train_prophet, forecast_prophet
+from src.models.prophet_model import train_prophet
 from src.evaluation import calculate_metrics
 from src.config import MODELS_PATH, RANDOM_SEED
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# CONFIGURAÇÕES
-# ============================================================
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# ============================================================
-# MODELOS PYDANTIC
-# ============================================================
-
 class DataPoint(BaseModel):
-    """Ponto único de dados de previsão"""
     timestamp: Optional[str] = None
     value: float
 
 
 class ForecastMetrics(BaseModel):
-    """Métricas de avaliação do modelo"""
     mae: Optional[float] = None
     rmse: Optional[float] = None
     mape: Optional[float] = None
@@ -55,7 +39,6 @@ class ForecastMetrics(BaseModel):
 
 
 class ForecastResponse(BaseModel):
-    """Resposta padrão de previsão"""
     forecast: List[float] = Field(description="Valores previstos")
     actual: Optional[List[float]] = Field(None, description="Valores reais (se disponíveis)")
     timestamps: List[str] = Field(description="Timestamps dos pontos previstos")
@@ -65,7 +48,6 @@ class ForecastResponse(BaseModel):
 
 
 class TrainingRequest(BaseModel):
-    """Requisição de treinamento"""
     lookback: int = Field(60, description="Janela de lookback para LSTM")
     epochs: int = Field(50, description="Número de epochs para treinamento")
     batch_size: int = Field(16, description="Tamanho do batch")
@@ -73,17 +55,11 @@ class TrainingRequest(BaseModel):
 
 
 class ForecastRequest(BaseModel):
-    """Requisição de previsão"""
     periods: int = Field(24, description="Número de períodos a prever")
     model_name: Optional[str] = Field(None, description="Nome do modelo a usar")
 
 
-# ============================================================
-# GERENCIADOR DE DADOS
-# ============================================================
-
 class DataManager:
-    """Gerencia dados de upload e aramazenamento"""
     
     def __init__(self):
         self.uploaded_data: Dict[str, pd.DataFrame] = {}
@@ -92,19 +68,16 @@ class DataManager:
         logger.info("✓ DataManager inicializado")
     
     def save_upload(self, file: UploadFile, filename: str) -> pd.DataFrame:
-        """Salvar e validar CSV enviado"""
         try:
             contents = file.file.read()
             df = pd.read_csv(io.StringIO(contents.decode('utf-8')))
             
-            # Validações básicas
             if df.empty:
                 raise ValueError("CSV vazio")
             
             if df.shape[1] < 2:
                 raise ValueError("CSV deve ter no mínimo 2 colunas (datetime + valor)")
             
-            # Detectar coluna datetime
             datetime_col = None
             numeric_cols = []
             
@@ -123,7 +96,6 @@ class DataManager:
             if not numeric_cols:
                 raise ValueError("CSV deve conter no mínimo 1 coluna numérica")
             
-            # Armazenar
             self.uploaded_data[filename] = df
             logger.info(f"✓ Arquivo salvo: {filename} ({df.shape[0]}x{df.shape[1]})")
             
@@ -134,27 +106,20 @@ class DataManager:
             raise
     
     def get_data(self, filename: str) -> pd.DataFrame:
-        """Recuperar dados enviados"""
         if filename not in self.uploaded_data:
             raise HTTPException(status_code=404, detail=f"Arquivo '{filename}' não encontrado")
         return self.uploaded_data[filename]
     
     def save_model(self, model_name: str, model: Any, model_type: str):
-        """Armazenar modelo treinado"""
         self.trained_models[f"{model_name}_{model_type}"] = model
         logger.info(f"✓ Modelo salvo: {model_name}_{model_type}")
     
     def get_model(self, model_name: str, model_type: str) -> Any:
-        """Recuperar modelo"""
         key = f"{model_name}_{model_type}"
         if key not in self.trained_models:
             raise HTTPException(status_code=404, detail=f"Modelo '{key}' não encontrado")
         return self.trained_models[key]
 
-
-# ============================================================
-# INICIALIZAR APLICAÇÃO E GERENCIADOR
-# ============================================================
 
 app = FastAPI(
     title="TOTEM_DEEPSEA API",
@@ -165,21 +130,7 @@ app = FastAPI(
 data_manager = DataManager()
 preprocessor = DataPreprocessor()
 
-# ============================================================
-# FUNÇÕES AUXILIARES
-# ============================================================
-
 def extract_numeric_features(df: pd.DataFrame) -> tuple:
-    """
-    Extrair features numéricas do DataFrame
-    
-    Args:
-        df: DataFrame com dados mistos
-    
-    Returns:
-        tuple: (dados_numericos, nomes_colunas, coluna_datetime)
-    """
-    # Detectar coluna datetime
     datetime_col = None
     numeric_cols = []
     
@@ -204,29 +155,13 @@ def prepare_forecast_response(
     metrics_dict: Optional[Dict] = None,
     model_type: str = "LSTM"
 ) -> ForecastResponse:
-    """
-    Montar resposta JSON de previsão
-    
-    Args:
-        forecast_values: Valores previstos
-        actual_values: Valores reais (opcional)
-        timestamps: Lista de timestamps
-        metrics_dict: Dicionário de métricas
-        model_type: Tipo de modelo usado
-    
-    Returns:
-        ForecastResponse: Resposta estruturada
-    """
-    # Garantir lists
     forecast_list = forecast_values.flatten().tolist() if isinstance(forecast_values, np.ndarray) else forecast_values
     actual_list = actual_values.flatten().tolist() if actual_values is not None else None
     
-    # Gerar timestamps se não fornecido
     if timestamps is None:
         now = datetime.now()
         timestamps = [(now + timedelta(hours=i)).isoformat() for i in range(len(forecast_list))]
     
-    # Métricas
     if metrics_dict is None:
         metrics_dict = {}
     
@@ -248,13 +183,8 @@ def prepare_forecast_response(
     )
 
 
-# ============================================================
-# ENDPOINTS DA API
-# ============================================================
-
 @app.get("/", tags=["Health"])
 async def root():
-    """Endpoint raiz - healthcheck"""
     return {
         "name": "🔮 TOTEM_DEEPSEA API",
         "status": "✅ online",
@@ -266,19 +196,10 @@ async def root():
 
 @app.post("/upload_csv", tags=["Data Management"])
 async def upload_csv(file: UploadFile = File(...)):
-    """
-    Upload arquivo CSV com séries temporais
-    
-    - **file**: Arquivo CSV com colunas de datetime + colunas numéricas
-    
-    Retorna informações sobre o arquivo processado
-    """
     try:
-        # Validar tipo de arquivo
-        if not file.filename.endswith('.csv'):
+        if file.filename is None or not file.filename.endswith('.csv'):
             raise HTTPException(status_code=400, detail="Apenas arquivos .csv são aceitos")
         
-        # Processar arquivo
         df = data_manager.save_upload(file, file.filename)
         
         return JSONResponse(
@@ -301,7 +222,7 @@ async def upload_csv(file: UploadFile = File(...)):
 @app.post("/train_lstm", tags=["Model Training"])
 async def train_lstm_model(
     filename: str,
-    request: TrainingRequest = TrainingRequest()
+    request: Optional[TrainingRequest] = None
 ):
     """
     Treinar modelo LSTM com dados do arquivo enviado
@@ -313,6 +234,14 @@ async def train_lstm_model(
     - **test_size**: Proporção de teste (padrão: 0.2)
     """
     try:
+        # Use default values if request is not provided
+        if request is None:
+            request = TrainingRequest(
+                lookback=60,
+                epochs=50,
+                batch_size=16,
+                test_size=0.2
+            )
         logger.info(f"🚀 Iniciando treinamento LSTM para {filename}...")
         
         # Recuperar dados
@@ -529,8 +458,20 @@ async def forecast_prophet(
         model_key = model_name or filename.replace('.csv', '')
         model = data_manager.get_model(model_key, 'prophet')
         
-        # Fazer previsão
-        forecast = forecast_prophet(model, periods=periods)
+        # Fazer previsão (directly call local implementation if forecast_prophet is not available)
+        if isinstance(model, dict):
+            # It's a dictionary of models, not a single model
+            # For now, use first model
+            first_model = next(iter(model.values())) if model else None
+            if first_model:
+                future = first_model.make_future_dataframe(periods=periods)
+                forecast = first_model.predict(future)
+            else:
+                raise ValueError("No model available for forecasting")
+        else:
+            # Single model case
+            future = model.make_future_dataframe(periods=periods)
+            forecast = model.predict(future)
         
         # Extrair valores
         forecast_values = forecast['yhat'].values

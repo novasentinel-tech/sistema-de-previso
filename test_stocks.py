@@ -38,6 +38,7 @@ except Exception as e:
 
 # Test 3: Buscar dados de uma ação (simples, rápido)
 print("\n3️⃣  Testando busca de dados (20 dias)...")
+df = None  # Initialize to None
 try:
     df = analyzer.fetch_stock_data('AAPL', period='20d', interval='1d')
     if df is not None and len(df) > 0:
@@ -50,6 +51,7 @@ except Exception as e:
 
 # Test 4: Adicionar indicadores técnicos
 print("\n4️⃣  Testando indicadores técnicos...")
+df_indicators = None  # Initialize to None
 try:
     if df is not None and len(df) > 0:
         df_indicators = analyzer.add_technical_indicators(df)

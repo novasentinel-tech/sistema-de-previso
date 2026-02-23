@@ -9,7 +9,6 @@ import json
 
 class UploadResponseSchema(BaseModel):
     """Response for CSV upload endpoint"""
-    message: str
     file_id: str
     rows: int
     columns: List[str]
@@ -51,12 +50,10 @@ class TrainingRequestSchema(BaseModel):
 
 class TrainingResponseSchema(BaseModel):
     """Response for model training"""
-    message: str
-    model_type: str
     model_id: str
+    model_type: str
     training_time: float
-    metrics: Dict[str, float]
-    params: Dict[str, Any]
+    metrics: Optional["MetricsSchema"] = None
     
     class Config:
         json_schema_extra = {
@@ -94,9 +91,9 @@ class ForecastRequestSchema(BaseModel):
 
 class MetricsSchema(BaseModel):
     """Model evaluation metrics"""
-    mae: float = Field(..., description="Mean Absolute Error")
-    rmse: float = Field(..., description="Root Mean Squared Error")
-    mape: float = Field(..., description="Mean Absolute Percentage Error")
+    mae: Optional[float] = Field(None, description="Mean Absolute Error")
+    rmse: Optional[float] = Field(None, description="Root Mean Squared Error")
+    mape: Optional[float] = Field(None, description="Mean Absolute Percentage Error")
     r2: Optional[float] = Field(None, description="R² Score")
     
     class Config:
@@ -142,8 +139,9 @@ class ForecastResponseSchema(BaseModel):
 class ErrorResponseSchema(BaseModel):
     """Error response schema"""
     error: str
-    detail: Optional[str] = None
+    message: Optional[str] = None
     error_code: str
+    timestamp: str
     
     class Config:
         json_schema_extra = {

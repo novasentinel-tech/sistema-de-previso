@@ -1,8 +1,3 @@
-"""
-Prophet Model for Time Series Forecasting
-Facebook's Prophet model, useful for univariate series with clear seasonality
-"""
-
 import pandas as pd
 import numpy as np
 import os
@@ -20,26 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 def train_prophet(df, col_target, col_datetime='ds', model_name=None):
-    """
-    Train Prophet model for a specific time series column
-    
-    Args:
-        df (pd.DataFrame): Input dataframe with datetime index
-        col_target (str): Column name containing values to forecast
-        col_datetime (str): Column name containing datetime (default 'ds')
-        model_name (str): Name for saving the model
-        
-    Returns:
-        Prophet.model: Trained Prophet model
-        
-    Example:
-        >>> df = pd.read_csv('data.csv')
-        >>> model = train_prophet(df, col_target='energy_consumption')
-    """
     
     logger.info(f"🔮 Training Prophet model for '{col_target}'...")
     
-    # Prepare data in Prophet format
     if col_datetime not in df.columns:
         df_prophet = pd.DataFrame({
             'ds': df.index,
@@ -51,13 +29,11 @@ def train_prophet(df, col_target, col_datetime='ds', model_name=None):
             'y': df[col_target].values
         })
     
-    # Handle missing values
     df_prophet = df_prophet.dropna()
     df_prophet['ds'] = pd.to_datetime(df_prophet['ds'])
     
     logger.info(f"  Training data shape: {df_prophet.shape}")
     
-    # Create and configure Prophet model
     model = Prophet(
         yearly_seasonality=PROPHET_YEARLY_SEASONALITY,
         weekly_seasonality=PROPHET_WEEKLY_SEASONALITY,
@@ -66,7 +42,6 @@ def train_prophet(df, col_target, col_datetime='ds', model_name=None):
         interval_width=PROPHET_INTERVAL_WIDTH
     )
     
-    # Fit model (suppress verbose output)
     with open(os.devnull, 'w') as devnull:
         import sys
         old_stdout = sys.stdout
@@ -76,7 +51,6 @@ def train_prophet(df, col_target, col_datetime='ds', model_name=None):
     
     logger.info("✓ Prophet model trained successfully")
     
-    # Save model if name provided
     if model_name:
         model_path = os.path.join(MODELS_PATH, f'{model_name}_prophet.pkl')
         with open(model_path, 'wb') as f:
@@ -87,27 +61,11 @@ def train_prophet(df, col_target, col_datetime='ds', model_name=None):
 
 
 def forecast_prophet(model, periods=24):
-    """
-    Generate forecasts using trained Prophet model
-    
-    Args:
-        model: Trained Prophet model
-        periods (int): Number of periods to forecast
-        
-    Returns:
-        pd.DataFrame: Forecast dataframe with 'yhat', 'yhat_lower', 'yhat_upper'
-        
-    Example:
-        >>> forecast = forecast_prophet(model, periods=24)
-        >>> print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']])
-    """
     
     logger.info(f"📈 Generating forecast for {periods} periods...")
     
-    # Create future dataframe
     future = model.make_future_dataframe(periods=periods)
     
-    # Generate forecast
     with open(os.devnull, 'w') as devnull:
         import sys
         old_stdout = sys.stdout
@@ -115,7 +73,6 @@ def forecast_prophet(model, periods=24):
         forecast = model.predict(future)
         sys.stdout = old_stdout
     
-    # Return only relevant columns
     forecast_result = forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(periods)
     
     logger.info(f"✓ Forecast generated with {len(forecast_result)} periods")
@@ -124,15 +81,7 @@ def forecast_prophet(model, periods=24):
 
 
 def load_prophet_model(model_name):
-    """
-    Load trained Prophet model from file
     
-    Args:
-        model_name (str): Name of the saved model
-        
-    Returns:
-        Prophet.model: Loaded Prophet model
-    """
     model_path = os.path.join(MODELS_PATH, f'{model_name}_prophet.pkl')
     
     if not os.path.exists(model_path):
@@ -147,18 +96,6 @@ def load_prophet_model(model_name):
 
 def train_prophet_for_all_columns(df, exclude_cols=None, 
                                    col_datetime='ds', prefix='prophet'):
-    """
-    Train Prophet models for all numeric columns
-    
-    Args:
-        df (pd.DataFrame): Input dataframe
-        exclude_cols (list): Columns to exclude from modeling
-        col_datetime (str): Datetime column name
-        prefix (str): Prefix for saving models
-        
-    Returns:
-        dict: Dictionary mapping column names to trained models
-    """
     
     if exclude_cols is None:
         exclude_cols = []
@@ -181,7 +118,3 @@ def train_prophet_for_all_columns(df, exclude_cols=None,
 
 if __name__ == "__main__":
     print("✓ Prophet model module ready!")
-    print("\nUsage example:")
-    print("  from models.prophet_model import train_prophet, forecast_prophet")
-    print("  model = train_prophet(df, col_target='your_column')")
-    print("  forecast = forecast_prophet(model, periods=24)")

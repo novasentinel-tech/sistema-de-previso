@@ -483,7 +483,7 @@ def main():
                                 return 'background-color: #FFD700'
                         
                         # Display table with styling
-                        styled_df = recommendations.style.applymap(
+                        styled_df = recommendations.style.map(
                             color_signal, subset=['Signal']
                         )
                         

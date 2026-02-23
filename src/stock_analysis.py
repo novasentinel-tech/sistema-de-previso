@@ -39,7 +39,7 @@ class StockAnalyzer:
             logger.info(f"📥 Baixando dados de {ticker}...")
             data = yf.download(ticker, period=period, interval=interval, progress=False)
             
-            if data.empty:
+            if data is None or data.empty:
                 logger.error(f"❌ Nenhum dado encontrado para {ticker}")
                 return None
             
@@ -65,29 +65,55 @@ class StockAnalyzer:
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = [col[0] for col in df.columns]
         
-        # RSI - Relative Strength Index
-        df['RSI'] = ta.rsi(df['Close'], length=14)
+        # Use simple calculations instead of pandas_ta
         
-        # MACD - Moving Average Convergence Divergence
-        macd = ta.macd(df['Close'])
-        if macd is not None:
-            df['MACD'] = macd.iloc[:, 0] if isinstance(macd, pd.DataFrame) else macd
-            if isinstance(macd, pd.DataFrame) and len(macd.columns) > 1:
-                df['MACD_Signal'] = macd.iloc[:, 1]
-                df['MACD_Hist'] = macd.iloc[:, 2] if len(macd.columns) > 2 else df['MACD'] - df['MACD_Signal']
+        # RSI - Relative Strength Index (manual calculation)
+        try:
+            delta = df['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df['RSI'] = 100 - (100 / (1 + rs))
+        except Exception as e:
+            logger.warning(f"Could not compute RSI: {e}")
+            df['RSI'] = np.nan
         
-        # Bollinger Bands
-        bbands = ta.bbands(df['Close'], length=20)
-        if bbands is not None and isinstance(bbands, pd.DataFrame):
-            bb_cols = bbands.columns
-            df['BB_Upper'] = bbands.iloc[:, 0] if len(bb_cols) > 0 else df['Close'] * 1.02
-            df['BB_Middle'] = bbands.iloc[:, 1] if len(bb_cols) > 1 else df['Close']
-            df['BB_Lower'] = bbands.iloc[:, 2] if len(bb_cols) > 2 else df['Close'] * 0.98
+        # MACD (manual calculation)
+        try:
+            ema_12 = df['Close'].ewm(span=12, adjust=False).mean()
+            ema_26 = df['Close'].ewm(span=26, adjust=False).mean()
+            df['MACD'] = ema_12 - ema_26
+            df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+            df['MACD_Hist'] = df['MACD'] - df['MACD_Signal']
+        except Exception as e:
+            logger.warning(f"Could not compute MACD: {e}")
+            df['MACD'] = np.nan
+            df['MACD_Signal'] = np.nan
+            df['MACD_Hist'] = np.nan
+        
+        # Bollinger Bands (manual calculation)
+        try:
+            sma20 = df['Close'].rolling(window=20).mean()
+            std20 = df['Close'].rolling(window=20).std()
+            df['BB_Upper'] = sma20 + (std20 * 2)
+            df['BB_Middle'] = sma20
+            df['BB_Lower'] = sma20 - (std20 * 2)
+        except Exception as e:
+            logger.warning(f"Could not compute Bollinger Bands: {e}")
+            df['BB_Upper'] = df['Close'] * 1.02
+            df['BB_Middle'] = df['Close']
+            df['BB_Lower'] = df['Close'] * 0.98
         
         # Médias móveis
-        df['SMA_20'] = ta.sma(df['Close'], length=20)
-        df['SMA_50'] = ta.sma(df['Close'], length=50)
-        df['SMA_200'] = ta.sma(df['Close'], length=200)
+        try:
+            df['SMA_20'] = df['Close'].rolling(window=20).mean()
+            df['SMA_50'] = df['Close'].rolling(window=50).mean()
+            df['SMA_200'] = df['Close'].rolling(window=200).mean()
+        except Exception as e:
+            logger.warning(f"Could not compute SMAs: {e}")
+            df['SMA_20'] = df['Close'].rolling(20).mean()
+            df['SMA_50'] = df['Close'].rolling(50).mean()
+            df['SMA_200'] = df['Close'].rolling(200).mean()
         
         # Remover NaN
         df = df.dropna()

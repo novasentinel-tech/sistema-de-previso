@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class FileManager:
     """Manages temporary storage of uploaded CSV files"""
     
-    def __init__(self, storage_dir: str = None):
+    def __init__(self, storage_dir: Optional[str] = None):
         """Initialize file manager with storage directory"""
         if storage_dir is None:
             storage_dir = os.path.join(tempfile.gettempdir(), "totem_deepsea_uploads")
@@ -83,7 +83,7 @@ class FileManager:
 class ModelManager:
     """Manages storage and retrieval of trained models"""
     
-    def __init__(self, models_dir: str = None):
+    def __init__(self, models_dir: Optional[str] = None):
         """Initialize model manager"""
         if models_dir is None:
             models_dir = os.path.join(tempfile.gettempdir(), "totem_deepsea_models")
@@ -93,7 +93,7 @@ class ModelManager:
         self.models_registry = {}  # In-memory registry
         logger.info(f"✓ ModelManager initialized at {models_dir}")
     
-    def save_model(self, model, model_id: str, metadata: Dict = None) -> bool:
+    def save_model(self, model, model_id: str, metadata: Optional[Dict] = None) -> bool:
         """
         Save model to disk
         
@@ -289,7 +289,7 @@ class MetricsCalculator:
             'mae': float(mae),
             'rmse': float(rmse),
             'mape': float(mape),
-            'r2': float(r2) if r2 is not None else None
+            'r2': float(r2) if r2 is not None else 0.0
         }
 
 

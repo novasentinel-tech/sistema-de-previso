@@ -43,7 +43,7 @@ try:
     df.index.name = 'timestamp'
     print(f"✅ Dados criados: {df.shape}")
     print(f"   Média: {df.mean().values}")
-    print(f"   Intervalo: [{df.min().values.min():.2f}, {df.max().values.max():.2f}]")
+    print(f"   Intervalo: [{df.min().min():.2f}, {df.max().max():.2f}]")
 except Exception as e:
     print(f"❌ Erro: {e}")
     sys.exit(1)

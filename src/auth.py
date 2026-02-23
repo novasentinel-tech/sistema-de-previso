@@ -48,7 +48,7 @@ class APIKeyManager:
         except Exception as e:
             logger.error(f"Error saving keys: {e}")
     
-    def generate_key(self, name: str, permissions: List[str] = None) -> str:
+    def generate_key(self, name: str, permissions: Optional[List[str]] = None) -> str:
         """
         Generate a new API key
         
