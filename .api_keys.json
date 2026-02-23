@@ -1,0 +1,12 @@
+{
+  "45b4299fc1d55a08171d5b9b91f9b292a0455ad8649ac6ee40cb7c6683966984": {
+    "name": "test-key",
+    "created_at": "2026-02-23T00:30:51.619299",
+    "last_used": null,
+    "permissions": [
+      "*"
+    ],
+    "active": true,
+    "requests_count": 0
+  }
+}

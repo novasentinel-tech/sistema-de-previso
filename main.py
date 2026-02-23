@@ -17,10 +17,14 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Query, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from src.api_models import (
     UploadResponseSchema,
@@ -41,6 +45,7 @@ from src.api_utils import (
     file_manager,
     model_manager
 )
+from src.auth import api_key_manager
 from src.data_preprocessing import DataPreprocessor as DP
 from src.models.lstm_model import build_lstm_model, train_lstm
 from src.models.prophet_model import train_prophet
@@ -48,11 +53,10 @@ from src.config import (
     LSTM_LOOKBACK,
     LSTM_EPOCHS,
     LSTM_BATCH_SIZE,
-    LSTM_LEARNING_RATE,
-    PROJECT_ROOT
+    LSTM_LEARNING_RATE
 )
 from sklearn.preprocessing import MinMaxScaler
-from fbprophet import Prophet
+from prophet import Prophet
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +84,38 @@ app.add_middleware(
 # In-memory storage for active sessions
 active_files = {}  # {file_id: {data, columns, datetime_col, numeric_cols}}
 active_models = {}  # {model_id: {type, file_id, params, created_at}}
+
+
+# ============================================================
+# API KEY VALIDATION
+# ============================================================
+
+async def verify_api_key(authorization: Optional[str] = Header(None)) -> Optional[dict]:
+    """
+    Verify API Key from Authorization header
+    
+    Expected format: Authorization: Bearer sk_your_api_key_here
+    or: X-API-Key: sk_your_api_key_here
+    """
+    if not authorization:
+        return None
+    
+    # Try to extract key from "Bearer" format
+    if authorization.startswith("Bearer "):
+        api_key = authorization[7:]
+    else:
+        api_key = authorization
+    
+    # Validate key
+    is_valid, metadata = api_key_manager.validate_key(api_key)
+    
+    if not is_valid:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key"
+        )
+    
+    return metadata
 
 
 @app.on_event("startup")
@@ -119,12 +155,16 @@ async def health_check():
 
 
 @app.post("/upload_csv", response_model=UploadResponseSchema)
-async def upload_csv(file: UploadFile = File(...)):
+async def upload_csv(
+    file: UploadFile = File(...),
+    key_data: dict = Depends(verify_api_key)
+):
     """
     Upload CSV file for processing
     
     Args:
         file: CSV file upload
+        key_data: API key metadata (auto-validated)
         
     Returns:
         UploadResponseSchema: file_id, rows, columns, datetime_column
@@ -188,7 +228,10 @@ async def upload_csv(file: UploadFile = File(...)):
 
 
 @app.post("/train_lstm", response_model=TrainingResponseSchema)
-async def train_lstm_endpoint(request: TrainingRequestSchema):
+async def train_lstm_endpoint(
+    request: TrainingRequestSchema,
+    key_data: dict = Depends(verify_api_key)
+):
     """
     Train LSTM model on uploaded data
     
@@ -313,7 +356,10 @@ async def train_lstm_endpoint(request: TrainingRequestSchema):
 
 
 @app.post("/train_prophet", response_model=TrainingResponseSchema)
-async def train_prophet_endpoint(request: TrainingRequestSchema):
+async def train_prophet_endpoint(
+    request: TrainingRequestSchema,
+    key_data: dict = Depends(verify_api_key)
+):
     """
     Train Prophet model on uploaded data
     
@@ -408,7 +454,8 @@ async def train_prophet_endpoint(request: TrainingRequestSchema):
 @app.get("/forecast_lstm", response_model=ForecastResponseSchema)
 async def forecast_lstm_endpoint(
     model_id: str = Query(..., description="Trained LSTM model ID"),
-    periods: int = Query(24, ge=1, le=365, description="Number of periods to forecast")
+    periods: int = Query(24, ge=1, le=365, description="Number of periods to forecast"),
+    key_data: dict = Depends(verify_api_key)
 ):
     """
     Generate LSTM forecast
@@ -416,6 +463,7 @@ async def forecast_lstm_endpoint(
     Args:
         model_id: Trained LSTM model ID
         periods: Number of periods to forecast (1-365)
+        key_data: API key metadata (auto-validated)
         
     Returns:
         ForecastResponseSchema: forecast array, metrics, timestamps
@@ -516,7 +564,8 @@ async def forecast_lstm_endpoint(
 @app.get("/forecast_prophet", response_model=ForecastResponseSchema)
 async def forecast_prophet_endpoint(
     model_id: str = Query(..., description="Trained Prophet model ID"),
-    periods: int = Query(24, ge=1, le=365, description="Number of periods to forecast")
+    periods: int = Query(24, ge=1, le=365, description="Number of periods to forecast"),
+    key_data: dict = Depends(verify_api_key)
 ):
     """
     Generate Prophet forecast
@@ -524,6 +573,7 @@ async def forecast_prophet_endpoint(
     Args:
         model_id: Trained Prophet model ID
         periods: Number of periods to forecast (1-365)
+        key_data: API key metadata (auto-validated)
         
     Returns:
         ForecastResponseSchema: forecast array, metrics, timestamps
@@ -668,6 +718,108 @@ async def cleanup_file(file_id: str):
         error_code="FILE_NOT_FOUND",
         status_code=404
     )
+
+
+# ============================================================
+# API KEY MANAGEMENT ENDPOINTS
+# ============================================================
+
+@app.post("/generate-api-key")
+async def generate_api_key(
+    name: str = Query(..., description="Name/description for API key"),
+    key_data: dict = Depends(verify_api_key)
+):
+    """
+    Generate a new API key (Master key required)
+    
+    Args:
+        name: Description for this API key
+        key_data: Master API key (auto-validated)
+        
+    Returns:
+        dict: New API key (store securely, can't retrieve again!)
+    """
+    try:
+        api_key = api_key_manager.generate_key(name, permissions=['*'])
+        
+        logger.info(f"✓ New API key generated: {name}")
+        
+        return {
+            'status': 'success',
+            'name': name,
+            'api_key': api_key,
+            'message': '⚠️  Store this key securely! You won\'t be able to retrieve it again.',
+            'usage': f'Authorization: Bearer {api_key}'
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error generating API key: {str(e)}")
+        raise APIException(
+            message=str(e),
+            error_code="KEY_GENERATION_ERROR",
+            status_code=500
+        )
+
+
+@app.get("/api-keys")
+async def list_api_keys(key_data: dict = Depends(verify_api_key)):
+    """
+    List all API keys (Master key required)
+    
+    Returns:
+        dict: List of API keys with metadata
+    """
+    try:
+        keys = api_key_manager.list_keys()
+        
+        return {
+            'total': len(keys),
+            'keys': keys
+        }
+    
+    except Exception as e:
+        logger.error(f"❌ Error listing keys: {str(e)}")
+        raise APIException(
+            message=str(e),
+            error_code="LIST_ERROR",
+            status_code=500
+        )
+
+
+@app.delete("/api-keys/{key_partial}")
+async def revoke_api_key(
+    key_partial: str = Query(..., description="First 16 chars of key hash"),
+    key_data: dict = Depends(verify_api_key)
+):
+    """
+    Revoke an API key (Master key required)
+    
+    Args:
+        key_partial: Key identifier (from list endpoint)
+        key_data: Master API key
+        
+    Returns:
+        dict: Status
+    """
+    try:
+        success = api_key_manager.revoke_key(key_partial)
+        
+        if success:
+            return {'status': 'success', 'message': 'API key revoked'}
+        else:
+            raise APIException(
+                message="Key not found",
+                error_code="KEY_NOT_FOUND",
+                status_code=404
+            )
+    
+    except Exception as e:
+        logger.error(f"❌ Error revoking key: {str(e)}")
+        raise APIException(
+            message=str(e),
+            error_code="REVOKE_ERROR",
+            status_code=500
+        )
 
 
 if __name__ == "__main__":
